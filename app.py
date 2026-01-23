@@ -51,7 +51,7 @@ def predict(
     prediction = model.predict(features)
 
     return {
-        "name": "Yeshwanth",
-        "roll_no": "2022bcd0056",
+        "name": "Manoj",
+        "roll_no": "2022bcs0184",
         "wine_quality": int(round(prediction[0]))
     }
