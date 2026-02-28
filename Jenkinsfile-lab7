@@ -5,6 +5,7 @@ pipeline {
         CONTAINER_NAME = "lab7-test-container"
         HOST_PORT = "8002"
         CONTAINER_PORT = "8000"
+        API_HOST = "172.17.0.1"
     }
     stages {
         stage('Pull Image') {
@@ -29,7 +30,7 @@ pipeline {
                     timeout(time: 60, unit: 'SECONDS') {
                         waitUntil {
                             def status = sh(
-                                script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:' + env.HOST_PORT + '/docs',
+                                script: 'curl -s -o /dev/null -w "%{http_code}" http://' + env.API_HOST + ':' + env.HOST_PORT + '/docs',
                                 returnStdout: true
                             ).trim()
                             echo "Health check status: ${status}"
@@ -43,7 +44,7 @@ pipeline {
             steps {
                 script {
                     def response = sh(
-                        script: 'curl -s "http://localhost:' + env.HOST_PORT + '/predict?fixed_acidity=7.4&volatile_acidity=0.7&citric_acid=0&residual_sugar=1.9&chlorides=0.076&free_sulfur_dioxide=11&total_sulfur_dioxide=34&density=0.9978&ph=3.51&sulphates=0.56&alcohol=9.4"',
+                        script: 'curl -s "http://' + env.API_HOST + ':' + env.HOST_PORT + '/predict?fixed_acidity=7.4&volatile_acidity=0.7&citric_acid=0&residual_sugar=1.9&chlorides=0.076&free_sulfur_dioxide=11&total_sulfur_dioxide=34&density=0.9978&ph=3.51&sulphates=0.56&alcohol=9.4"',
                         returnStdout: true
                     ).trim()
                     echo "Valid Response: ${response}"
@@ -57,7 +58,7 @@ pipeline {
             steps {
                 script {
                     def status = sh(
-                        script: 'curl -s -o /dev/null -w "%{http_code}" "http://localhost:' + env.HOST_PORT + '/predict?fixed_acidity=7.4"',
+                        script: 'curl -s -o /dev/null -w "%{http_code}" "http://' + env.API_HOST + ':' + env.HOST_PORT + '/predict?fixed_acidity=7.4"',
                         returnStdout: true
                     ).trim()
                     echo "Invalid Request Status Code: ${status}"
