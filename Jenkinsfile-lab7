@@ -4,10 +4,19 @@ pipeline {
     environment {
         IMAGE_NAME = "2022bcs0184manoj/2022bcs0184-lab6:latest"
         CONTAINER_NAME = "lab7-test-container"
+        NETWORK_NAME = "lab7-network"
         CONTAINER_PORT = "8000"
     }
 
     stages {
+
+        stage('Create Network') {
+            steps {
+                sh '''
+                    docker network create $NETWORK_NAME || true
+                '''
+            }
+        }
 
         stage('Pull Image') {
             steps {
@@ -19,7 +28,10 @@ pipeline {
             steps {
                 sh '''
                     docker rm -f $CONTAINER_NAME || true
-                    docker run -d --name $CONTAINER_NAME -p 8001:8000 $IMAGE_NAME
+                    docker run -d \
+                        --name $CONTAINER_NAME \
+                        --network $NETWORK_NAME \
+                        $IMAGE_NAME
                 '''
             }
         }
@@ -30,7 +42,7 @@ pipeline {
                     timeout(time: 60, unit: 'SECONDS') {
                         waitUntil {
                             def status = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/docs",
+                                script: "docker run --rm --network $NETWORK_NAME curlimages/curl:latest -s -o /dev/null -w '%{http_code}' http://$CONTAINER_NAME:$CONTAINER_PORT/docs",
                                 returnStdout: true
                             ).trim()
                             return (status == "200")
@@ -45,7 +57,7 @@ pipeline {
                 script {
                     def response = sh(
                         script: """
-                        curl -s "http://localhost:8001/predict?fixed_acidity=7.4&volatile_acidity=0.7&citric_acid=0&residual_sugar=1.9&chlorides=0.076&free_sulfur_dioxide=11&total_sulfur_dioxide=34&density=0.9978&ph=3.51&sulphates=0.56&alcohol=9.4"
+                        docker run --rm --network $NETWORK_NAME curlimages/curl:latest -s "http://$CONTAINER_NAME:$CONTAINER_PORT/predict?fixed_acidity=7.4&volatile_acidity=0.7&citric_acid=0&residual_sugar=1.9&chlorides=0.076&free_sulfur_dioxide=11&total_sulfur_dioxide=34&density=0.9978&ph=3.51&sulphates=0.56&alcohol=9.4"
                         """,
                         returnStdout: true
                     ).trim()
@@ -64,8 +76,8 @@ pipeline {
                 script {
                     def status = sh(
                         script: """
-                        curl -s -o /dev/null -w "%{http_code}" \
-                        "http://localhost:8001/predict?fixed_acidity=7.4"
+                        docker run --rm --network $NETWORK_NAME curlimages/curl:latest -s -o /dev/null -w "%{http_code}" \
+                        "http://$CONTAINER_NAME:$CONTAINER_PORT/predict?fixed_acidity=7.4"
                         """,
                         returnStdout: true
                     ).trim()
@@ -79,22 +91,14 @@ pipeline {
             }
         }
 
-        stage('Stop Container') {
+        stage('Cleanup') {
             steps {
                 sh '''
                     docker stop $CONTAINER_NAME || true
                     docker rm $CONTAINER_NAME || true
+                    docker network rm $NETWORK_NAME || true
                 '''
             }
-        }
-    }
-
-    post {
-        always {
-            sh '''
-                docker stop $CONTAINER_NAME || true
-                docker rm $CONTAINER_NAME || true
-            '''
         }
     }
 }
