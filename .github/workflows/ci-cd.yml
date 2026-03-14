@@ -59,7 +59,7 @@ jobs:
           with open("metrics.json") as f:
               m = json.load(f)
 
-          cur_r2 = m["r2"]
+          cur_r2 = m["accuracy"]
           cur_rmse = m["rmse"]
 
           best_r2 = float(os.environ.get("BEST_R2", 0))
