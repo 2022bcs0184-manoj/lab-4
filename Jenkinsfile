@@ -13,11 +13,15 @@ pipeline {
             }
         }
 
-        stage('Setup Python Environment') {
+        stage('Install Python & Setup Virtual Environment') {
             steps {
                 sh '''
+                apt-get update
+                apt-get install -y python3 python3-venv python3-pip
+
                 python3 -m venv venv
                 . venv/bin/activate
+
                 pip install --upgrade pip
                 pip install -r requirements.txt
                 '''
@@ -33,47 +37,48 @@ pipeline {
             }
         }
 
-        stage('Read Metrics') {
+        stage('Read Accuracy') {
             steps {
                 script {
-                    env.NEW_R2 = sh(
-                        script: "jq .r2 metrics.json",
-                        returnStdout: true
-                    ).trim()
 
-                    echo "New R2 = ${env.NEW_R2}"
+                    def metrics = readJSON file: 'app/artifacts/metrics.json'
+
+                    env.CURRENT_ACCURACY = metrics.accuracy.toString()
+
+                    echo "Current Accuracy = ${env.CURRENT_ACCURACY}"
                 }
             }
         }
 
-        stage('Compare With Best') {
+        stage('Compare Accuracy') {
             steps {
                 script {
 
-            withCredentials([string(credentialsId: 'BEST_R2', variable: 'BEST_R2_VAL')]) {
+                    withCredentials([string(credentialsId: 'best-accuracy', variable: 'BEST_ACC')]) {
 
-                def best = BEST_R2_VAL.toFloat()
-                def current = env.NEW_R2.toFloat()
+                        def best = BEST_ACC.toFloat()
+                        def current = env.CURRENT_ACCURACY.toFloat()
 
-                echo "Best R2 = ${best}"
-                echo "Current R2 = ${current}"
+                        echo "Best Accuracy = ${best}"
+                        echo "Current Accuracy = ${current}"
 
-                if (current > best) {
-                    env.BUILD_DOCKER = "true"
-                    echo "Model improved ✅"
-                } else {
-                    env.BUILD_DOCKER = "false"
-                    echo "Model not improved ❌"
+                        if (current > best) {
+                            env.BUILD_DOCKER = "true"
+                            echo "Model improved ✅"
+                        } else {
+                            env.BUILD_DOCKER = "false"
+                            echo "Model did not improve ❌"
+                        }
+                    }
                 }
-            }
-        }
             }
         }
 
         stage('Build Docker Image') {
             when {
-                environment name: 'BUILD_DOCKER', value: 'true'
+                expression { env.BUILD_DOCKER == "true" }
             }
+
             steps {
                 sh '''
                 docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
@@ -84,13 +89,16 @@ pipeline {
 
         stage('Push Docker Image') {
             when {
-                environment name: 'BUILD_DOCKER', value: 'true'
+                expression { env.BUILD_DOCKER == "true" }
             }
+
             steps {
+
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
                     usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS')]) {
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
 
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -104,7 +112,7 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'metrics.json, model.pkl', fingerprint: true
+            archiveArtifacts artifacts: 'app/artifacts/**', fingerprint: true
         }
     }
 }
