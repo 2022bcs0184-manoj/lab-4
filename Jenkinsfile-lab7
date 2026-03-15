@@ -4,7 +4,7 @@ agent any
 
 environment {
     IMAGE_NAME = "2022bcs0184manoj/2022bcs0184-lab6"
-    CONTAINER_NAME = "ml-test-container"
+    CONTAINER_NAME = "2022bcs0184_jenkins"
 }
 
 stages {
