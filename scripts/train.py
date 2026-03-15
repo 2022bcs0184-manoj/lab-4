@@ -2,6 +2,7 @@ import pandas as pd
 import json
 import math
 import joblib
+import os
 
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -24,6 +25,7 @@ model = RandomForestRegressor(
     n_estimators=50,
     max_depth=8
 )
+
 model.fit(X_train, y_train)
 
 # Predict
@@ -39,11 +41,14 @@ print(f"R2 Score: {r2}")
 # Save model
 joblib.dump(model, "model.pkl")
 
+# Create artifacts directory if it doesn't exist
+os.makedirs("app/artifacts", exist_ok=True)
+
 # Save metrics
 metrics = {
-    "rmse": rmse,
-    "r2": r2
+    "accuracy": r2,
+    "rmse": rmse
 }
 
-with open("app/artifacts/metrics.json", "w") as f:
+with open("metrics.json", "w") as f:
     json.dump(metrics, f, indent=4)
